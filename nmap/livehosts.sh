@@ -22,15 +22,17 @@
 #			--> DONE, Jan 5th 22
 #	4 - clean the code and more documentation on code parts.
 #			-->  Jan 4th 22,
-#	5 - check if script is run with admin privileges.
+#	5 - check if script is run with root privileges.
 #			--> DONE, Jan 4th 22
 #	6 - add wrapper function for the nmap-cmds in run_pings.
 #			--> DONE, Jan 4th 22
 #	7 - apparently there are compound switches for pings, need to built them in.
 #			--> OBSOLETE, see pt.9
 #	8 - make the end-variable obsolete
-#			-->
+#			--> DONE, Jan 6th 22
 #	9 - get all scan techniques automatically from nmap -h so they dont have to be hardcoded
+#			--> DONE, Jan 6th 22
+#	10 - remove nmap_wrap() since it is no longer needed
 #			--> DONE, Jan 6th 22
 
 if [ "$EUID" -ne 0 ]
@@ -39,13 +41,12 @@ if [ "$EUID" -ne 0 ]
 fi
 
 SCAN_LEVEL=$1
+
 if [[ $# == 0 ]]
 	then
 		echo "No SCAN_LEVEL parameter has been passed. Defaulting to 2."
 		SCAN_LEVEL=2
 fi
-
-end=""
 
 function get_ipv4s(){
 	local ip_addrs=($(ip addr show | awk '/inet / {print $2}'))
@@ -79,12 +80,6 @@ function choose_ipv4(){
 	iprange=${ip_addrs[$ip_select]}
 }
 
-function nmap_wrap(){
-	echo "$1"
-	end+=$(sudo nmap -n -$1 $2 --host-timeout=5 | awk '/Nmap s/ {print $NF}')
-	end+=" "
-}
-
 function nmap_techniques(){
 	local techniques_section=$(nmap -h | grep "SCAN TECHNIQUES:" --after-context=$SCAN_LEVEL\
 		--line-buffered | awk '/ -s/ {print $1}')
@@ -94,35 +89,36 @@ function nmap_techniques(){
 }
 
 function run_pings(){
-	local flavors=$(nmap_techniques)
-	flavors=($flavors)
-#	local responding=""
+	local flavors=($2)
+	local responding=""
 	for i in $(seq 0 $((${#flavors[@]}-1)))
 	do
-		nmap_wrap "${flavors[$i]}" "$1"
+		responding+=$(sudo nmap -n -${flavors[$i]} "$1" --host-timeout=5\
+				| awk '/Nmap s/ {print $NF}')
+		responding+=" "
 	done
-	end=($end)
+	echo "${responding[@]}"
 }
 
 function distinctify_array(){
-	declare -a arr=("${!1}")
+	local arr=($1)
 	arr=($(tr ' ' '\n' <<< "${arr[@]}" | tr -d '()' | sort -u | tr '\n' ' '))
 	echo "${arr[@]}"
 }
 
 function main(){
-	nmap_techniques
+	local teqs=$(nmap_techniques)
 	echo "Choose IPv4 address to scan."
 	local ipv4s=$(get_ipv4s)
 	display_options "$ipv4s"
 	local selected_ipv4=$(select_option "$ipv4s")
 	echo "$selected_ipv4"
-	echo "Running discovery pings now."
-	run_pings "$selected_ipv4"
+	echo "Running discovery pings ($teqs) now."
+	local results=$(run_pings "$selected_ipv4" "$teqs")
 	echo "Finished."
-	local resultset=$(distinctify_array end[@])
+	local distinct_results=$(distinctify_array "${results[@]}")
 	echo "Responding hosts:"
-	echo "${resultset[@]}"
+	echo "${distinct_results[@]}"
 }
 
 main
