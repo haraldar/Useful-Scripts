@@ -7,52 +7,43 @@
 #		the different nmap ping flavors in one go and collect the
 # 		responding IPs.
 # Functioning:
-#	1 - Get the users IPv4 addresses with 'ip addr show'.
+#	1 - Get the users IPv4 addresses.
 # 	2 - User chooses range to scan.
-# 	3 - After selection immediately run pings and simply collect all responding IPs.
+# 	3 - Run the different nmap pings and collect all discovered IPs.
 #	4 - Finally clean the IPs of any errors and ouput the result.
-# TODO:
-#	1 - surpress the hostname resolution (makes the need to strip the
-#		parentheses obsolete).
-#			--> DONE, Jan 5th 22
-#	2 - use key value array for all filters.
-#			--> OBSOLETE, bc there's only 2 filters
-# 	3 - split choose_ipv4 into get_ipv4s() and choose_ipv4s(), so that latter one may
-# 		return a string with echo instead of using a global.
-#			--> DONE, Jan 5th 22
-#	4 - clean the code and more documentation on code parts.
-#			-->  Jan 4th 22,
-#	5 - check if script is run with root privileges.
-#			--> DONE, Jan 4th 22
-#	6 - add wrapper function for the nmap-cmds in run_pings.
-#			--> DONE, Jan 4th 22
-#	7 - apparently there are compound switches for pings, need to built them in.
-#			--> OBSOLETE, see pt.9
-#	8 - make the end-variable obsolete
-#			--> DONE, Jan 6th 22
-#	9 - get all scan techniques automatically from nmap -h so they dont have to be hardcoded
-#			--> DONE, Jan 6th 22
-#	10 - remove nmap_wrap() since it is no longer needed
-#			--> DONE, Jan 6th 22
 
-if [ "$EUID" -ne 0 ]
-	then echo "The script must be run as root."
+# This program runs nmap scans with sudo, therefore the user must have root privileges and that
+# is the case when EUID is 0.
+if [ "$EUID" -ne 0 ]; then
+	echo "The script must be run as root."
 	exit
 fi
 
-SCAN_LEVEL=$1
-
-if [[ $# == 0 ]]
-	then
-		echo "No SCAN_LEVEL parameter has been passed. Defaulting to 2."
-		SCAN_LEVEL=2
+# SCAN_LEVEL is our global variable indicating how many lines of scan techniques we want to use
+# Accepted values are 1 to 3 (default: 2). Higher defaults to 3, lower to 1.
+if [[ $# == 0 ]]; then
+	echo "No SCAN_LEVEL parameter has been passed. Defaulting to 2."
+	SCAN_LEVEL=2
+else
+	SCAN_LEVEL=$1
+	if (( $SCAN_LEVEL > 3 )); then
+		echo "SCAN_LEVEL cannot be bigger than 3. Defaulting to 3."
+		SCAN_LEVEL=3
+	elif (( $SCAN_LEVEL < 1 )); then
+		echo "SCAN_LEVEL cannot be smaller than 1. Defaulting to 2."
+		SCAN_LEVEL=1
+	fi
 fi
 
+# get_ipv4s()filters out and returns the IPv4's returned by the 'ip addr show' command.
+# Returns: Stringified array containing the IPv4's.
 function get_ipv4s(){
 	local ip_addrs=($(ip addr show | awk '/inet / {print $2}'))
 	echo "${ip_addrs[@]}"
 }
 
+# display_options() displays an array of different options with indices.
+# Params: Stringified array containing the options to display.
 function display_options(){
 	local options="$1"
 	options=($options)
@@ -63,23 +54,17 @@ function display_options(){
 	done
 }
 
+# select_option() reads the user's input and returns the selection from the array passed.
+# Params: Stringified array of options.
+# Returns: The selected item from the array.
 function select_option(){
 	read selection
 	local options=($1)
 	echo "${options[$selection]}"
 }
 
-function choose_ipv4(){
-	local ip_addrs=($(ip addr show | awk '/inet / {print $2}'))
-	local ip_amount=$((${#ip_addrs[@]}-1))
-	for i in $(seq 0 $ip_amount)
-	do
-		echo "$i ${ip_addrs[$i]}"
-	done
-	read ip_select
-	iprange=${ip_addrs[$ip_select]}
-}
-
+# nmap_techniques() finds the different scan techniques in the 'nmap -h' command.
+# Returns: Stringified array of scan techniques.
 function nmap_techniques(){
 	local techniques_section=$(nmap -h | grep "SCAN TECHNIQUES:" --after-context=$SCAN_LEVEL\
 		--line-buffered | awk '/ -s/ {print $1}')
@@ -88,6 +73,11 @@ function nmap_techniques(){
 	echo "$techniques_section"
 }
 
+# run_pings() runs the given scan techniques on a specified range.
+# Params:
+#	(1) The IPv4 range to scan.
+#	(2) Stringified array of scan tachniques to run.
+# Returns: Stringified array containing all responding IPs from all scans (non-unique array).
 function run_pings(){
 	local flavors=($2)
 	local responding=""
@@ -100,6 +90,9 @@ function run_pings(){
 	echo "${responding[@]}"
 }
 
+# distinctify_array() removes all duplicate values.
+# Params: Stringified array.
+# Returns: Stringified array containing only unique values.
 function distinctify_array(){
 	local arr=($1)
 	arr=($(tr ' ' '\n' <<< "${arr[@]}" | tr -d '()' | sort -u | tr '\n' ' '))
