@@ -19,23 +19,34 @@ if [ "$EUID" -ne 0 ]; then
 	exit
 fi
 
-# SCAN_LEVEL is our global variable indicating how many lines of scan techniques we want to use
-# Accepted values are 1 to 3 (default: 2). Higher defaults to 3, lower to 1.
-if [[ $# == 0 ]]; then
-	echo "No SCAN_LEVEL parameter has been passed. Defaulting to 2."
-	SCAN_LEVEL=2
-else
-	SCAN_LEVEL=$1
-	if (( $SCAN_LEVEL > 3 )); then
-		echo "SCAN_LEVEL cannot be bigger than 3. Defaulting to 3."
-		SCAN_LEVEL=3
-	elif (( $SCAN_LEVEL < 1 )); then
-		echo "SCAN_LEVEL cannot be smaller than 1. Defaulting to 2."
-		SCAN_LEVEL=1
-	fi
-fi
+#if [[ $# == 0 ]]; then
+## 	SCAN_LEVEL is our global variable indicating how many lines of scan techniques we want
+##	to use. Accepted values are 1 to 3 (default: 2). Higher defaults to 3, lower to 1.
+#	echo "No SCAN_LEVEL parameter has been passed. Defaulting to 2."
+#	SCAN_LEVEL=2
+#else
+#	SCAN_LEVEL=$1
+#	if (( $SCAN_LEVEL > 3 )); then
+#		echo "SCAN_LEVEL cannot be bigger than 3. Defaulting to 3."
+#		SCAN_LEVEL=3
+#	elif (( $SCAN_LEVEL < 1 )); then
+#		echo "SCAN_LEVEL cannot be smaller than 1. Defaulting to 2."
+#		SCAN_LEVEL=1
+#	fi
+#fi
 
-# get_ipv4s()filters out and returns the IPv4's returned by the 'ip addr show' command.
+# Displays the help.
+function display_help(){
+	echo "getlive is a command-line tool for discovering multiple hosts in the same network using"
+	echo "nmap scan techniques."
+	echo "Usage: getlive [option]"
+	echo "	-i, --ips		prints the system's IPv4s"
+	echo "	-n, --nmap_scans	prints the different nmap scan techniques"
+	echo "	-h, --help		prints the help"
+	echo "	[value]			runs the main program with the value (default: 2)"
+}
+
+# get_ipv4s() filters out and returns the IPv4's returned by the 'ip addr show' command.
 # Returns: Stringified array containing the IPv4's.
 function get_ipv4s(){
 	local ip_addrs=($(ip addr show | awk '/inet / {print $2}'))
@@ -45,8 +56,7 @@ function get_ipv4s(){
 # display_options() displays an array of different options with indices.
 # Params: Stringified array containing the options to display.
 function display_options(){
-	local options="$1"
-	options=($options)
+	local options=($1)
 	options_amount=$((${#options[@]}-1))
 	for i in $(seq 0 $options_amount)
 	do
@@ -114,4 +124,36 @@ function main(){
 	echo "${distinct_results[@]}"
 }
 
-main
+if [[ $# == 0 ]]; then
+	echo "No SCAN_LEVEL parameter has been passed. Defaulting to 2."
+	SCAN_LEVEL=2
+	main
+else
+	case $1 in
+		'')
+			SCAN_LEVEL=2
+			echo "No SCAN_LEVEL parameter has been passed. Defaulting to 2."
+			main
+			exit
+			;;
+		 *[0-9]*)
+			SCAN_LEVEL=$1
+			main
+			exit
+			;;
+		'-h' | '--help')
+			display_help
+			exit
+			;;
+		'-i' | '--ips')
+			get_ipv4s
+			exit
+			;;
+		'-n' | '--nmap_scans')
+			SCAN_LEVEL=3
+			nmap_techniques
+			exit
+			;;
+	esac
+fi
+
