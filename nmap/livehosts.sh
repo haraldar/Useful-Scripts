@@ -96,6 +96,7 @@ function distinctify_array(){
 	echo "${arr[@]}"
 }
 
+# get_livehosts() is the main function of the script and runs the thought.
 function get_livehosts(){
 	check_root
 	local teqs=$(nmap_techniques)
