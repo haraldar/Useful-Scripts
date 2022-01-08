@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 
 # Author: Harald Asmus
-# Development period: Jan 1st, 2022 - Jan 6th, 2022
+# Development period: Jan 1st, 2022 - Jan 8th, 2022
 # Reason: As a newbie to nmap trying to discover live responding hosts in my home
 #		is kind of inconsistent, so with this script I basically run all
 #		the different nmap ping flavors in one go and collect the
@@ -12,30 +12,17 @@
 # 	3 - Run the different nmap pings and collect all discovered IPs.
 #	4 - Finally clean the IPs of any errors and ouput the result.
 
-# This program runs nmap scans with sudo, therefore the user must have root privileges and that
-# is the case when EUID is 0.
-if [ "$EUID" -ne 0 ]; then
-	echo "The script must be run as root."
-	exit
-fi
+# check_root() checks if the script has been started with user privileges, if not it exits.
+function check_root(){
+	# This program runs nmap scans with sudo, therefore the user must have root privileges
+	# and that is the case when EUID is 0.
+	if [ "$EUID" -ne 0 ]; then
+		echo "The script must be run as root for this."
+		exit
+	fi
+}
 
-#if [[ $# == 0 ]]; then
-## 	SCAN_LEVEL is our global variable indicating how many lines of scan techniques we want
-##	to use. Accepted values are 1 to 3 (default: 2). Higher defaults to 3, lower to 1.
-#	echo "No SCAN_LEVEL parameter has been passed. Defaulting to 2."
-#	SCAN_LEVEL=2
-#else
-#	SCAN_LEVEL=$1
-#	if (( $SCAN_LEVEL > 3 )); then
-#		echo "SCAN_LEVEL cannot be bigger than 3. Defaulting to 3."
-#		SCAN_LEVEL=3
-#	elif (( $SCAN_LEVEL < 1 )); then
-#		echo "SCAN_LEVEL cannot be smaller than 1. Defaulting to 2."
-#		SCAN_LEVEL=1
-#	fi
-#fi
-
-# Displays the help.
+# display_help() displays the help.
 function display_help(){
 	echo "getlive is a command-line tool for discovering multiple hosts in the same network using"
 	echo "nmap scan techniques."
@@ -109,7 +96,8 @@ function distinctify_array(){
 	echo "${arr[@]}"
 }
 
-function main(){
+function get_livehosts(){
+	check_root
 	local teqs=$(nmap_techniques)
 	echo "Choose IPv4 address to scan."
 	local ipv4s=$(get_ipv4s)
@@ -124,21 +112,31 @@ function main(){
 	echo "${distinct_results[@]}"
 }
 
+# Here we check the params and decide which function is to be run.
 if [[ $# == 0 ]]; then
+	# SCAN_LEVEL is our global variable indicating how many lines of scan techniques we want
+	# to use. Accepted values are 1 to 3 (default: 2). Higher defaults to 3, lower to 1.
 	echo "No SCAN_LEVEL parameter has been passed. Defaulting to 2."
 	SCAN_LEVEL=2
-	main
+	get_livehosts
 else
 	case $1 in
 		'')
 			SCAN_LEVEL=2
 			echo "No SCAN_LEVEL parameter has been passed. Defaulting to 2."
-			main
+			get_livehosts
 			exit
 			;;
 		 *[0-9]*)
 			SCAN_LEVEL=$1
-			main
+			if (( $SCAN_LEVEL > 3 )); then
+				echo "SCAN_LEVEL cannot be bigger than 3. Defaulting to 3."
+				SCAN_LEVEL=3
+			elif (( $SCAN_LEVEL < 1 )); then
+				echo "SCAN_LEVEL cannot be smaller than 1. Defaulting to 1."
+				SCAN_LEVEL=1
+			fi
+			get_livehosts
 			exit
 			;;
 		'-h' | '--help')
@@ -154,6 +152,9 @@ else
 			nmap_techniques
 			exit
 			;;
+		*)
+			echo "Unknown parameter passed: $1"
+			exit
+			;;
 	esac
 fi
-
