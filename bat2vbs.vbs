@@ -122,7 +122,6 @@ Sub displayHelp()
 	WScript.Echo "Preoptions:"
 	WScript.Echo "    -h:    Help."
 	WScript.Echo "    -c:    Display the content of the target file."
-	WScript.Echo "    -i:    (TODO) Insert the code into an existing VBS-file."
 	
 	' Anteoptions
 	WScript.Echo "Anteoptions (all default True):"
@@ -133,6 +132,12 @@ End Sub
 
 
 Sub errExit(ByVal msg)
+	'''
+	' Echo a message and leave.
+	' Params:
+	'	msg (vbString): The message to leave.
+	'''
+	
 	WScript.Echo msg
 	WScript.Quit
 End Sub
@@ -186,8 +191,6 @@ Sub main()
 		Select Case objArgs(0)
 			Case "-h"
 				displayHelp()
-			Case "-i"
-				errExit("This feature is yet to be implemented.")
 			Case Else
 				strFileCheck = checkFile(objArgs(0))
 				If StrComp(strFileCheck, "") <> 0 Then
