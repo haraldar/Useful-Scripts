@@ -82,9 +82,9 @@ Sub vbsify(ByVal strFileName, ByVal blnRunAfter, ByVal blnDeleteAfter)
 	' Create the new file and fill it with the wrapper code.
 	Set fileOut = objFSO.CreateTextFile(strNewFileName, True)
 	fileOut.WriteLine "Dim objWrapperFSO, objWrapperOutFile"
-	fileOut.WriteLine "Set wrapperShell = WScript.CreateObject(""WScript.Shell"")"
+	fileOut.WriteLine "Dim strWrapperNewFileName : strWrapperNewFileName = """ & strFileName & """"
 	fileOut.WriteLine "Set objWrapperFSO = CreateObject(""Scripting.FileSystemObject"")"
-	fileOut.WriteLine "Set objWrapperOutFile = objWrapperFSO.CreateTextFile(""" & strFileName & """, True)"
+	fileOut.WriteLine "Set objWrapperOutFile = objWrapperFSO.CreateTextFile(strWrapperNewFileName, True)"
 	For Each strLine In arrFileContent
 		' double quotes need to be double double quotes
 		fileOut.WriteLine "objWrapperOutFile.WriteLine """ & Replace(strLine, """", """""") & """"
@@ -96,8 +96,8 @@ Sub vbsify(ByVal strFileName, ByVal blnRunAfter, ByVal blnDeleteAfter)
 	End If
 	fileOut.WriteLine "objWrapperOutFile.Close"
 	If blnDeleteAfter Then
-		fileOut.WriteLine "If objWrapperFSO.FileExists(""" & strFileName & """) Then"
-		fileOut.WriteLine "    objWrapperFSO.DeleteFile(""" & strFileName & """)"
+		fileOut.WriteLine "If objWrapperFSO.FileExists(strWrapperNewFileName) Then"
+		fileOut.WriteLine "    objWrapperFSO.DeleteFile(strWrapperNewFileName)"
 		fileOut.WriteLine "End If"
 	End If
 	fileOut.Close
@@ -124,6 +124,11 @@ Sub displayHelp()
 	WScript.Echo "    -c:    Display the content of the target file."
 	WScript.Echo "    -i:    (TODO) Insert the code into an existing VBS-file."
 	
+	' Anteoptions
+	WScript.Echo "Anteoptions (all default True):"
+	WScript.Echo "    -r:    Disable piece of code to the script that will run the final bat file."
+	WScript.Echo "    -d:    DIsable piece of code to the script that will delete the final bat file."
+	
 End Sub
 
 
@@ -131,6 +136,32 @@ Sub errExit(ByVal msg)
 	WScript.Echo msg
 	WScript.Quit
 End Sub
+
+
+Function checkFile(ByVal path)
+	'''
+	' Check if given path is a file and try adding the scripts parent folder. If it is
+	' not a valid file, return an empty string.
+	' Params:
+	'	path (vbString): The path to the file.
+	' Returns:
+	'	vbString: The actual path.
+	'''
+	
+	Dim strScriptDir
+	strScriptDir = objFSO.GetParentFolderName(WScript.ScriptFullName)
+	' Try the path that has been passed.
+	If objFSO.FileExists(path) Then
+		checkFile = path
+	' Try the path with this scipts' parent folder.
+	ElseIf objFSO.FileExists(strScriptDir & path) Then
+		checkFile = strScriptDir & path
+	' If the options above didn't work, it is not a file.
+	Else
+		checkFile = ""
+	End If
+	
+End Function
 
 
 Sub main()
@@ -143,27 +174,24 @@ Sub main()
 	Set objArgs = WScript.Arguments
 	intArgsAmount = objArgs.Count
 	
-	Dim strScriptDir
-	strScriptDir = objFSO.GetParentFolderName(WScript.ScriptFullName)
+	Dim strFileCheck
+	Dim blnRunnable, blnDeletable
 	
 	Dim UNKNOWN_ARG : UNKNOWN_ARG = "Unknown argument."
 	Dim NOT_ENOUGH_ARGS : NOT_ENOUGH_ARGS = "Not enough arguments supplied."
 	Dim ARG_NOT_FILE : ARG_NOT_FILE = "Argument supplied is not an existing file."
+	Dim INCORRECT_ARGS : INCORRECT_ARGS = "Incorrect amount of arguments supplied."
 	
-	If intArgsAmount = 0 OR intArgsAmount > 2 Then
-		' The script expects at least one argument.
-		errExit(NOT_ENOUGH_ARGS) 
-	ElseIf intArgsAmount = 1 Then
+	If intArgsAmount = 1 Then
 		Select Case objArgs(0)
 			Case "-h"
 				displayHelp()
 			Case "-i"
 				errExit("This feature is yet to be implemented.")
 			Case Else
-				If objFSO.FileExists(objArgs(0)) Then
-					vbsify objArgs(0), False, False
-				ElseIf objFSO.FileExists(strScriptDir & objArgs(0)) Then
-					vbsify strScriptDir & objArgs(0), False, False
+				strFileCheck = checkFile(objArgs(0))
+				If StrComp(strFileCheck, "") <> 0 Then
+					vbsify strFileCheck, True, True
 				ElseIf StrComp(objArgs(0), "-c") = 0 Then
 					errExit(NOT_ENOUGH_ARGS)
 				Else
@@ -178,7 +206,36 @@ Sub main()
 				Else
 					errExit(ARG_NOT_FILE)
 				End If
+			Case Else
+				strFileCheck = checkFile(objArgs(0))
+				If StrComp(strFileCheck, "") <> 0 Then
+					If StrComp(objArgs(1), "-r") = 0 Then
+						vbsify strFileCheck, False, True
+					ElseIf StrComp(objArgs(1), "-d") = 0 Then
+						vbsify strFileCheck, True, False
+					Else
+						errExit("Argument after file not recognized.")
+					End If
+				End If
 		End Select
+	ElseIf intArgsAmount = 3 Then
+		strFileCheck = checkFile(objArgs(0))
+		If StrComp(strFileCheck, "") <> 0 Then
+			If StrComp(objArgs(1), "-r") = 0 OR StrComp(objArgs(1), "-d") = 0 Then
+				If StrComp(objArgs(2), "-r") = 0 OR StrComp(objArgs(2), "-d") = 0 Then
+					vbsify strFileCheck, False, False
+				Else
+					errExit("Last argument should be anteoption.")
+				End If
+			Else
+				errExit("Argument after file should be anteoption.")
+			End If
+		Else
+			errExit("First argument not recognized.")
+		End If
+	Else
+		' The script expects at least one argument.
+		errExit(NOT_ENOUGH_ARGS) 
 	End If
 	
 	WScript.Quit
