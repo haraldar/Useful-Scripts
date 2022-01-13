@@ -2,7 +2,7 @@
 
 ---
 
-#### livehosts.sh
+#### [livehosts.sh](https://github.com/haraldar/linux#livehostssh)
 
 ---
 
@@ -16,7 +16,7 @@ The thought behind that script is, that as a newbie to nmap I keep getting incon
 
 ---
 
-#### bat2vbs.vbs
+#### [bat2vbs.vbs](https://github.com/haraldar/linux#bat2vbsvbs) 
 
 ---
 
