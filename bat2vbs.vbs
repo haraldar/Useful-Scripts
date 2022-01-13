@@ -1,21 +1,15 @@
 ' Wrap a batch file into a vbs script as runnable application.
 
 ' AUTHOR: HARALD ASMUS
-' v0 - 13-01-2022 - reads a batch file
-' v0.1 - 14-01-2022
+' DATE OF CREATION: 13-01-2021
 
-' TODO
-'	1. Comply with naming conventions.
-'	2. Allow to insert the code into an existing vbs-file.
-
-' Naming conventions used:
+' Naming conventions used (I really didn't like the docstrings there):
 ' http://www.sourceformat.com/coding-standard-vbs-convention.htm
 ' https://stackoverflow.com/questions/3281355/get-the-type-of-a-variable-in-vbscript
 
 ' Usage: cscript.exe .../bat2vbs.vbs <args>
 
 Dim objFSO, wShell, objEnv
-
 Set wShell = WScript.CreateObject("WScript.Shell")
 Set objEnv = wShell.Environment("Process")
 Set objFSO = CreateObject("Scripting.FileSystemObject")
@@ -72,6 +66,7 @@ Sub vbsify(ByVal strFileName, ByVal blnRunAfter, ByVal blnDeleteAfter)
 	' and deletes the produced file afterwards if opted in.
 	' Params:
 	'	strFileName (vbString): The file to wrap into vbs.
+	'	blnRunAfter (vbBoolean): Decides if the file will run after being produced.
 	'	blnDeleteAfter (vbBoolean): Decides if the file will delete itself after.
 	'''
 	
@@ -90,13 +85,13 @@ Sub vbsify(ByVal strFileName, ByVal blnRunAfter, ByVal blnDeleteAfter)
 	fileOut.WriteLine "Set wrapperShell = WScript.CreateObject(""WScript.Shell"")"
 	fileOut.WriteLine "Set objWrapperFSO = CreateObject(""Scripting.FileSystemObject"")"
 	fileOut.WriteLine "Set objWrapperOutFile = objWrapperFSO.CreateTextFile(""" & strFileName & """, True)"
-	for each strLine in arrFileContent
+	For Each strLine In arrFileContent
 		' double quotes need to be double double quotes
 		fileOut.WriteLine "objWrapperOutFile.WriteLine """ & Replace(strLine, """", """""") & """"
 	Next
 	If blnRunAfter Then
-	fileOut.WriteLine "Dim wrapperShell"
-	fileOut.WriteLine "Set wrapperShell = WScript.CreateObject(""WScript.Shell"")"
+		fileOut.WriteLine "Dim wrapperShell"
+		fileOut.WriteLine "Set wrapperShell = WScript.CreateObject(""WScript.Shell"")"
 		fileOut.WriteLine "wrapperShell.Run strNewFileName, 0, false"
 	End If
 	fileOut.WriteLine "objWrapperOutFile.Close"
@@ -110,16 +105,84 @@ Sub vbsify(ByVal strFileName, ByVal blnRunAfter, ByVal blnDeleteAfter)
 End Sub
 
 
-Sub main()
-	Dim strFileIn, strFileOut
-	strFileIn = WScript.Arguments(0)
-	' TODO check the arguments here and how to process them
-	' wShell.Popup strFileIn, , "BAT2VBS", 1
-	' WScript.Echo readBatch(strFileIn)
-	' WScript.Echo changeFileExtension(strFileIn, "vbs")
-	vbsify strFileIn, False, False
-	'convert2vbs()
+Sub displayHelp()
+	'''
+	' Display the tools' description, usage and options.
+	'''
+	
+	' Description
+	WScript.Echo "This tool creates an embeddable VBS-script, that when run creates a"
+	WScript.Echo "bat-file and can execute and/ or run it."
+	
+	' Usage
+	WScript.Echo "Usage:"
+	WScript.Echo "    cscript.exe .../bat2vbs.vbs [preoptions (optional)] [file target] [anteoptions]"
+
+	' Preoptions
+	WScript.Echo "Preoptions:"
+	WScript.Echo "    -h:    Help."
+	WScript.Echo "    -c:    Display the content of the target file."
+	WScript.Echo "    -i:    (TODO) Insert the code into an existing VBS-file."
+	
+End Sub
+
+
+Sub errExit(ByVal msg)
+	WScript.Echo msg
 	WScript.Quit
+End Sub
+
+
+Sub main()
+	'''
+	' The main procedure. The script arguments are evaluated in a 
+	' first-come-first-serve fashion.
+	'''
+
+	Dim objArgs, intArgsAmount
+	Set objArgs = WScript.Arguments
+	intArgsAmount = objArgs.Count
+	
+	Dim strScriptDir
+	strScriptDir = objFSO.GetParentFolderName(WScript.ScriptFullName)
+	
+	Dim UNKNOWN_ARG : UNKNOWN_ARG = "Unknown argument."
+	Dim NOT_ENOUGH_ARGS : NOT_ENOUGH_ARGS = "Not enough arguments supplied."
+	Dim ARG_NOT_FILE : ARG_NOT_FILE = "Argument supplied is not an existing file."
+	
+	If intArgsAmount = 0 OR intArgsAmount > 2 Then
+		' The script expects at least one argument.
+		errExit(NOT_ENOUGH_ARGS) 
+	ElseIf intArgsAmount = 1 Then
+		Select Case objArgs(0)
+			Case "-h"
+				displayHelp()
+			Case "-i"
+				errExit("This feature is yet to be implemented.")
+			Case Else
+				If objFSO.FileExists(objArgs(0)) Then
+					WScript.Echo vbsify(objArgs(0), False, False)
+				ElseIf objFSO.FileExists(strScriptDir & objArgs(0)) Then
+					WScript.Echo vbsify(strScriptDir & objArgs(0), False, False)
+				ElseIf StrComp(objArgs(0), "-c") = 0 Then
+					errExit(NOT_ENOUGH_ARGS)
+				Else
+					errExit(UNKNOWN_ARG)
+				End If
+		End Select
+	ElseIf intArgsAmount = 2 Then
+		Select Case objArgs(0)
+			Case "-c"
+				If objFSO.FileExists(objArgs(1)) Then
+					WScript.Echo readFileContent(objArgs(1))
+				Else
+					errExit(ARG_NOT_FILE)
+				End If
+		End Select
+	End If
+	
+	WScript.Quit
+	
 End Sub
 
 
