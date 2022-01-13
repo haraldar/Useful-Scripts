@@ -161,9 +161,9 @@ Sub main()
 				errExit("This feature is yet to be implemented.")
 			Case Else
 				If objFSO.FileExists(objArgs(0)) Then
-					WScript.Echo vbsify(objArgs(0), False, False)
+					vbsify objArgs(0), False, False
 				ElseIf objFSO.FileExists(strScriptDir & objArgs(0)) Then
-					WScript.Echo vbsify(strScriptDir & objArgs(0), False, False)
+					vbsify strScriptDir & objArgs(0), False, False
 				ElseIf StrComp(objArgs(0), "-c") = 0 Then
 					errExit(NOT_ENOUGH_ARGS)
 				Else
