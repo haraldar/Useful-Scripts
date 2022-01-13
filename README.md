@@ -1,8 +1,12 @@
 ### Content
 
 ---
+1. [livehosts.sh](#livehostssh)
+2. [bat2vbs.vbs](#bat2vbsvbs)
 
-#### [livehosts.sh](https://github.com/haraldar/linux#livehostssh)
+---
+
+#### livehosts.sh
 
 ---
 
@@ -16,7 +20,7 @@ The thought behind that script is, that as a newbie to nmap I keep getting incon
 
 ---
 
-#### [bat2vbs.vbs](https://github.com/haraldar/linux#bat2vbsvbs) 
+#### bat2vbs.vbs
 
 ---
 
