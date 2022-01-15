@@ -2,7 +2,7 @@
 
 ---
 1. [livehosts.sh](#livehostssh)
-2. [bat2vbs.vbs](#bat2vbsvbs)
+2. [wrap2vbs.vbs](#wrap2vbsvbs)
 
 ---
 
@@ -20,13 +20,13 @@ The thought behind that script is, that as a newbie to nmap I keep getting incon
 
 ---
 
-#### bat2vbs.vbs
+#### wrap2vbs.vbs
 
 ---
 
 #### What is it.
 
-The program creates a VBS-file, that, when run, creates a BAT-file that contains raw, runnable BAT-code. The produced VBS-file can, if opted, run the BAT-file and/ or delete it.
+The program creates a VBS-file containing wrapped code, that when run creates a runnable and/ or deletable file that contains the unwrapped code.
 
 #### Why is it.
 
