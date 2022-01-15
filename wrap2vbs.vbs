@@ -1,7 +1,7 @@
 ' Wrap a batch file into a vbs script as runnable application.
 
 ' AUTHOR: HARALD ASMUS
-' DATE OF CREATION: 13-01-2021
+' DEVELOPMENT PERIOD: Jan 13th, 2022 - Jan 15th, 2022
 
 ' Naming conventions used (I really didn't like the docstrings there):
 ' http://www.sourceformat.com/coding-standard-vbs-convention.htm
@@ -9,36 +9,38 @@
 
 ' Usage: cscript.exe .../bat2vbs.vbs <args>
 
+
 Dim objFSO, wShell, objEnv
 Set wShell = WScript.CreateObject("WScript.Shell")
 Set objEnv = wShell.Environment("Process")
 Set objFSO = CreateObject("Scripting.FileSystemObject")
 
 
-Function readFileContent(ByVal strFileLocation)
+Function readFileContent(ByVal strFile)
 	'''
 	' Read file content.
 	' Params:
-	'	strFileLocation (vbString): The location of the file to read.
+	'	strFile (vbString): The location of the file to read.
 	' Returns:
 	'	vbString: Contains the content of the 
 	'''
 	
-	Dim objFileText, strFileContent
+	Dim objReader, strFileContent
 	
-	Set objFileText = objFSO.OpenTextFile(strFileLocation, 1)
-	strFileContent = objFileText.ReadAll
-	objFileText.Close
+	Set objReader = objFSO.OpenTextFile(strFile, 1)
+	strFileContent = objReader.ReadAll
+	objReader.Close
 	readFileContent = strFileContent
 	
 End Function
 
 
-Function changeFileExtension(ByVal strFileLocation, ByVal strNewExtension)
+Function changeFileExtension(ByVal strFile, ByVal strExtension)
 	'''
 	' Convert the old filename to a filename with a custom extension.
 	' Params: 
-	'	strFileLocation (vbString): The old file name.
+	'	strFile (vbString): The old file name.
+	'	strExtension (vbString): The new extension.
 	' Returns:
 	'	vbString: The new filename with the replacement extension.
 	'''
@@ -46,16 +48,16 @@ Function changeFileExtension(ByVal strFileLocation, ByVal strNewExtension)
 	Dim arrOldFileName
 	
 	'Split by the dot.
-	arrOldFileName = Split(strFileLocation, ".")
+	arrOldFileName = Split(strFile, ".")
 	
 	'Check array size, should be 2, else error and quit.
 	If UBound(arrOldFileName) <> 1 Then
-		WScript.Echo "More than one '.' detected in " & strFileLocation & ". Aborting."
+		WScript.Echo "More than one '.' detected in " & strFile & "."
 		WScript.Quit
 	End If
 	
 	'Replace the .bat with the new extension and combine array.
-	changeFileExtension = arrOldFileName(0) & "." & strNewExtension
+	changeFileExtension = arrOldFileName(0) & "." & strExtension
 	
 End Function
 
@@ -130,41 +132,42 @@ Sub errExit(ByVal msg)
 	
 	WScript.Echo msg
 	WScript.Quit
+	
 End Sub
 
 
-Function wrapIntoVBS(ByVal strText, ByVal strFileName, ByVal blnRunAfter, ByVal blnDeleteAfter)
+Function wrapIntoVBS(ByVal strSourceContent, ByVal strTargetFile, ByVal blnRunAfter, ByVal blnDeleteAfter)
 	'''
 	' Wrap the Code into VBS.
 	' Params:
-	'	strText (vbString): The text that will be wrapped.
-	'	strFileName (vbString): The filename of the eventually produced file.
+	'	strSourceContent (vbString): The text that will be wrapped.
+	'	strTargetFile (vbString): The filename of the eventually produced file.
 	'	blnRunAfter (vbBoolean): Decides if the file will run after being produced.
 	'	blnDeleteAfter (vbBoolean): Decides if the file will delete itself after.
 	' Returns:
 	'	vbString: The wrapped code text.
 	'''
 	
-	Dim strWrapperText : strWrapperText = "Dim objWrapperFSO, objWrapperOutFile" & vbCrLf
-	strWrapperText = strWrapperText & "Dim strWrapperNewFileName : strWrapperNewFileName = """ & strFileName & """" & vbCrLf
+	Dim strWrapperText : strWrapperText = "Dim objWrapperFSO, objWrapperWriter" & vbCrLf
+	strWrapperText = strWrapperText & "Dim strWrappedFile : strWrappedFile = """ & strTargetFile & """" & vbCrLf
 	strWrapperText = strWrapperText & "Set objWrapperFSO = CreateObject(""Scripting.FileSystemObject"")" & vbCrLf
-	strWrapperText = strWrapperText & "Set objWrapperOutFile = objWrapperFSO.CreateTextFile(strWrapperNewFileName, True)" & vbCrLf
+	strWrapperText = strWrapperText & "Set objWrapperWriter = objWrapperFSO.CreateTextFile(strWrappedFile, True)" & vbCrLf
 	
-	Dim arrTextToWrap : arrTextToWrap = Split(strText, vbCrLf)
+	Dim arrTextToWrap : arrTextToWrap = Split(strSourceContent, vbCrLf)
 	For Each strLine In arrTextToWrap
 		' double quotes need to be double double quotes
-		strWrapperText = strWrapperText & "objWrapperOutFile.WriteLine """ & Replace(strLine, """", """""") & """" & vbCrLf
+		strWrapperText = strWrapperText & "objWrapperWriter.WriteLine """ & Replace(strLine, """", """""") & """" & vbCrLf
 	Next
 	
 	If blnRunAfter Then
 		strWrapperText = strWrapperText & "Dim wrapperShell" & vbCrLf
 		strWrapperText = strWrapperText & "Set wrapperShell = WScript.CreateObject(""WScript.Shell"")" & vbCrLf
-		strWrapperText = strWrapperText & "wrapperShell.Run strNewFileName, 0, false" & vbCrLf
+		strWrapperText = strWrapperText & "wrapperShell.Run strWrappedFile, 0, false" & vbCrLf
 	End If
-	strWrapperText = strWrapperText & "objWrapperOutFile.Close" & vbCrLf
+	strWrapperText = strWrapperText & "objWrapperWriter.Close" & vbCrLf
 	If blnDeleteAfter Then
-		strWrapperText = strWrapperText & "If objWrapperFSO.FileExists(strWrapperNewFileName) Then" & vbCrLf
-		strWrapperText = strWrapperText & "    objWrapperFSO.DeleteFile(strWrapperNewFileName)" & vbCrLf
+		strWrapperText = strWrapperText & "If objWrapperFSO.FileExists(strWrappedFile) Then" & vbCrLf
+		strWrapperText = strWrapperText & "    objWrapperFSO.DeleteFile(strWrappedFile)" & vbCrLf
 		strWrapperText = strWrapperText & "End If" & vbCrLf
 	End If
 	
@@ -173,26 +176,25 @@ Function wrapIntoVBS(ByVal strText, ByVal strFileName, ByVal blnRunAfter, ByVal 
 End Function
 
 
-Function insertIntoVBS(ByVal strSourceFile, ByVal strTargetFile, ByVal strInsertionMark)
+Function insertIntoVBS(ByVal strSourceFile, ByVal strTargetFile, ByVal strInsertMark)
 	'''
 	' Returns the string that contains the old text with the embedded vbs-code.
 	' Params:
 	'	strSourceFile (vbString): The file we need to convert.
 	'	strTargetFile (vbString): The file where we insert into.
-	'	strInsertionMark (vbString): The mark where we insert after.
+	'	strInsertMark (vbString): The mark where we insert after.
 	' Returns:
 	'	vbString: The text with the embedded code.
 	'''
 	
 	Dim strSourceContent, strTargetContent, arrTargetContent
-	Dim strFileFromContent, strFileIntoContent, arrFileIntoContent
 	
 	' Read the file strSourceFile.
 	strSourceContent = readFileContent(strSourceFile)
 	
 	' Read the file strTargetFile and split at the specified mark.
 	strTargetContent = readFileContent(strTargetFile)
-	arrTargetContent = Split(strTargetContent, "'" & strInsertionMark)
+	arrTargetContent = Split(strTargetContent, "'" & strInsertMark)
 	
 	' Check if there are duplicates of the insertion mark.
 	If UBound(arrTargetContent) > 1 Then
@@ -203,47 +205,56 @@ Function insertIntoVBS(ByVal strSourceFile, ByVal strTargetFile, ByVal strInsert
 	
 	' Combine the wrapped content with the original content.
 	Dim strWrapperText
-	strWrapperText = arrTargetContent(0) & vbCrLf
+	strWrapperText = Replace(arrTargetContent(0), """", """""") & vbCrLf
 	strWrapperText = strWrapperText & wrapIntoVBS(strSourceContent, strSourceFile, True, True) & vbCrLf
-	strWrapperText = strWrapperText & arrTargetContent(1)
+	strWrapperText = strWrapperText & Replace(arrTargetContent(1), """", """""")
 	
 	insertIntoVBS = strWrapperText
 	
 End Function
 
 
-Sub vbsify(ByVal strFileName, ByVal blnRunAfter, ByVal blnDeleteAfter, ByVal strInsertInto, ByVal strInsertionMark)
+Sub vbsify(ByVal strSourceFile, ByVal blnRunAfter, ByVal blnDeleteAfter, ByVal strTargetFile, ByVal strInsertMark)
 	'''
 	' Wrap the specified file into VBS code, that creates a batch file, executes it
 	' and deletes the produced file afterwards if opted in.
 	' Params:
-	'	strFileName (vbString): The file to wrap into vbs.
+	'	strSourceFile (vbString): The file to wrap into vbs.
 	'	blnRunAfter (vbBoolean): Decides if the file will run after being produced.
 	'	blnDeleteAfter (vbBoolean): Decides if the file will delete itself after.
+	'	strTargetFile (vbString): If file name not an empty string, then insert into the target file.
+	'	strInsertMark (vbString): If insert mark not an empty string, then insert at insertion mark.
 	'''
 	
-	Dim strFileContent, strNewFileName, fileOut
-	Dim arrWrapperText, strWrapperText
+	Dim strSourceContent, strWrapperText, strOutputFile
 	
-	If StrComp(strInsertInto, "") <> 0 Then
-		strWrapperText = insertIntoVBS(strFileName, strInsertInto, strInsertionMark)
-		arrWrapperText = Split(strWrapperText, vbCrLf)
-	Else
-		' Get the filecontent and the new filename for the output file.
-		strFileContent = readFileContent(strFileName)
+	If StrComp(strTargetFile, "") <> 0 Then
+	
+		If StrComp(strTargetFile, "") = 0 Then
+			errExit("No insertion mark passed.")
+		End If
 		
-		' Create the wrapped text from the file.
-		strWrapperText = wrapIntoVBS(strFileContent, strFileName, blnRunAfter, blnDeleteAfter)
-		arrWrapperText = Split(strWrapperText, vbCrLf)
+		strOutputFile = strTargetFile
+		strWrapperText = insertIntoVBS(strSourceFile, strTargetFile, strInsertMark)
+		
+	Else
+	
+		' Get the source content and the output file, then wrap the source.
+		strSourceContent = readFileContent(strSourceFile)
+		strOutputFile = changeFileExtension(strSourceFile, "vbs")
+		strWrapperText = wrapIntoVBS(strSourceContent, strSourceFile, blnRunAfter, blnDeleteAfter)
+		
 	End If
+	
+	Dim arrWrapperText, objFileWriter
+	arrWrapperText = Split(strWrapperText, vbCrLf)
 
 	' Create the new file and fill it with the wrapper code.
-	strNewFileName = changeFileExtension(strFileName, "vbs")
-	Set fileOut = objFSO.CreateTextFile(strNewFileName, True)
+	Set objFileWriter = objFSO.CreateTextFile(strOutputFile, True)
 	For Each strLine In arrWrapperText
-		fileOut.WriteLine strLine
+		objFileWriter.WriteLine strLine
 	Next
-	fileOut.Close
+	objFileWriter.Close
 	
 End Sub
 
@@ -314,10 +325,10 @@ Sub main()
 		strFileCheck = checkFile(objArgs(0))
 		If StrComp(objArgs(0), "-i") = 0 Then
 		
-			Dim strFileFrom : strFileFrom = checkFile(objArgs(1))
-			Dim strFileInto : strFileInto = checkFile(objArgs(2))
-			If StrComp(strFileFrom, "") <> 0 AND StrComp(strFileInto, "") <> 0 Then
-				vbsify strFileFrom, True, True, strFileInto, "VBSIFY HERE"
+			Dim strSourceFile : strSourceFile = checkFile(objArgs(1))
+			Dim strTargetFile : strTargetFile = checkFile(objArgs(2))
+			If StrComp(strSourceFile, "") <> 0 AND StrComp(strTargetFile, "") <> 0 Then
+				vbsify strSourceFile, True, True, strTargetFile, "VBSIFY HERE"
 			Else
 				errExit("One or more of the two necessary filepaths after -i are not files.")
 			End If
