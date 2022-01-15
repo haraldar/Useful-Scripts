@@ -12,7 +12,7 @@
 
 #### What is it.
 
-This bash-script is designed to just flood, respectfully, your home network with different pings and collecting all responding hosts, therefore returning all the live hosts.
+This bash-script is designed to flood a (home) network with different nmap pings and collecting all responding hosts.
 
 #### Why is it.
 
